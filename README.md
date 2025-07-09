@@ -45,12 +45,6 @@ book-review-app/
 ├── .env
 ├── README.md
 └── package.json
-
-yaml
-Copy code
-
-
-
 ---
 
 ## 🛠 Tech Stack
@@ -83,7 +77,7 @@ Copy code
 ### 📁 Clone Repository
 
 ```bash
-git clone https://github.com/<your-username>/book-review-app.git
+git clone https://github.com/Sachint122/Book_Manage.git
 cd book-review-app
 
 cd server
