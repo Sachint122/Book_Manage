@@ -22,6 +22,37 @@ const UserDashboard = () => {
 
     fetchBooks();
   }, []);
+  const handleDownload = async (url, bookTitle) => {
+    try {
+      const res = await fetch(url);
+
+      if (!res.ok) throw new Error('Invalid response');
+
+      const blob = await res.blob();
+
+      if (blob.type !== 'application/pdf') {
+        alert('❌ Link is not a valid PDF file.');
+        return;
+      }
+
+      const blobURL = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      // Clean filename (remove spaces/special chars)
+      const cleanTitle = bookTitle.replace(/[^a-zA-Z0-9]/g, '_');
+
+      link.href = blobURL;
+      link.download = `${cleanTitle}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobURL);
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('❌ Failed to download. Link may be broken or expired.');
+    }
+  };
+
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
@@ -75,8 +106,12 @@ const UserDashboard = () => {
             <p><strong>Author:</strong> {book.author}</p>
             <p>{book.description}</p>
             <button
-              // onClick={handleDownload}
-              className="download-btn">📥 Download</button>
+              className="download-btn"
+              onClick={() => handleDownload(book.fileURL, book.title)}
+            >
+              📥 Download
+            </button>
+
             <div className="review-section">
               <h5>💬 Reviews</h5>
               {book.reviews?.length > 0 ? (
