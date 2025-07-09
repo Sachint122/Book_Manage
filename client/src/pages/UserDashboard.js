@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import '../styles/userDashboard.css';
+import socket from '../socket';
 const UserDashboard = () => {
   const { auth, logout } = useAuth();
   const [books, setBooks] = useState([]);
@@ -9,18 +10,24 @@ const UserDashboard = () => {
   const [review, setReview] = useState({ content: '', rating: 1 });
 
   const formRef = useRef();
-
+  const fetchBooks = async () => {
+    try {
+      const res = await axios.get('/books');
+      setBooks(res.data);
+    } catch (err) {
+      console.error('Error loading books:', err);
+    }
+  };
   useEffect(() => {
-    const fetchBooks = async () => {
-      try {
-        const res = await axios.get('/books');
-        setBooks(res.data);
-      } catch (err) {
-        console.error('Error loading books:', err);
-      }
-    };
-
     fetchBooks();
+
+    socket.on('new-review', ({ bookId }) => {
+      console.log('🔁 Review updated for book:', bookId);
+      fetchBooks(); // re-fetch entire list or just update that book
+    });
+    return () => {
+      socket.off('new-review');
+    }
   }, []);
   const handleDownload = async (url, bookTitle) => {
     try {

@@ -31,7 +31,8 @@ export const addReview = async (req, res) => {
     await Book.findByIdAndUpdate(bookId, {
       $push: { reviews: newReview._id },
     });
-
+    const io = req.app.get('io');
+    io.emit('new-review', { bookId });
     res.status(201).json(newReview);
   } catch (err) {
     console.error('Add review error:', err);
