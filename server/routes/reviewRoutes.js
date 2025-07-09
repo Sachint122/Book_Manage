@@ -1,8 +1,10 @@
 import express from 'express';
-import { addReview, getReviewsByBook } from '../controllers/reviewController.js';
+import { addReview, getReviewsByBook,updateReview ,deleteReview } from '../controllers/reviewController.js';
 import auth from '../middleware/authMiddleware.js';
-
+import verifyAdmin from '../middleware/verifyAdmin.js';
 const router = express.Router();
 router.post('/add', auth(['user']), addReview);
 router.get('/book/:bookId', getReviewsByBook);
+router.patch('/:id', verifyAdmin, updateReview);
+router.delete('/:id', verifyAdmin, deleteReview);
 export default router;

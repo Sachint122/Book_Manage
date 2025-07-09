@@ -1,125 +1,137 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import '../styles/admin.css';
+import '../styles/adminDashboard.css';
+import { useNavigate } from 'react-router-dom';
+import socket from '../socket';
 
-const AdminPanel = () => {
-  const { auth } = useAuth(); // ✅ Get JWT and user info
+const AdminDashboard = () => {
+  const { auth, logout } = useAuth();
   const [books, setBooks] = useState([]);
-  const [form, setForm] = useState({
-    title: '',
-    author: '',
-    description: '',
-    fileURL: '',
-  });
-
-  useEffect(() => {
-    fetchBooks();
-  }, []);
+  const [editingReview, setEditingReview] = useState(null);
+  const [editData, setEditData] = useState({ content: '', rating: 1 });
+  const navigate = useNavigate();
 
   const fetchBooks = async () => {
     try {
       const res = await axios.get('/books');
       setBooks(res.data);
     } catch (err) {
-      console.error('Failed to fetch books:', err);
+      console.error('Error fetching books:', err);
     }
   };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const handleDeleteReview = async (reviewId) => {
     try {
-      await axios.post('/books/upload', form, {
+      await axios.delete(`/reviews/${reviewId}`, {
         headers: {
-          Authorization: `Bearer ${auth?.token}`, // ✅ Required
+          Authorization: `Bearer ${auth.token}`,
         },
       });
+  
+      alert('✅ Review deleted');
+      fetchBooks(); // reload book list
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('❌ Failed to delete review');
+    }
+  };
+  
+  useEffect(() => {
+    fetchBooks();
+    socket.on('new-review', () => fetchBooks());
+    return () => socket.off('new-review');
+  }, []);
 
-      alert('✅ Book uploaded!');
-      setForm({ title: '', author: '', description: '', fileURL: '' });
+  const handleEditClick = (review) => {
+    setEditingReview(review);
+    setEditData({ content: review.content, rating: review.rating });
+  };
+
+  const handleUpdate = async () => {
+    try {
+      await axios.patch(`/reviews/${editingReview._id}`, editData, {
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+        },
+      });
+      alert('✅ Review updated!');
+      setEditingReview(null);
       fetchBooks();
     } catch (err) {
-      console.error('Upload error:', err);
-      alert(err.response?.data?.error || '❌ Upload failed');
+      alert('❌ Failed to update review');
+      console.error(err);
     }
-  };
-
-  const handleDelete = async (bookId) => {
-    if (window.confirm('Are you sure you want to delete this book?')) {
-      try {
-        await axios.delete(`/books/${bookId}`, {
-          headers: {
-            Authorization: `Bearer ${auth?.token}`, // ✅ Required
-          },
-        });
-        fetchBooks();
-      } catch (err) {
-        console.error('Delete error:', err);
-        alert(err.response?.data?.error || '❌ Delete failed');
-      }
-    }
-  };
-
-  const handleReviewEdit = (bookId) => {
-    alert(`🔧 Redirect to review editor for book ID: ${bookId}`);
-    // You can use navigate(`/admin/review/${bookId}`) if using react-router
   };
 
   return (
-    <div className="admin-container">
-      <h2>📚 Admin Panel</h2>
+    <div className="admin-dashboard">
+      <div className="header">
+        <h2>🛠️ Admin Dashboard</h2>
+        <span className="welcome-text">
+          Welcome, <span className="username">{auth?.user?.name}</span>
+        </span>
+        <div className="header-buttons">
+          <button className="add-book-btn" onClick={() => navigate('/admin/add-book')}>➕ Add Book</button>
+          <button className="logout-btn" onClick={logout}>🚪 Logout</button>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit} className="admin-form">
-        <input
-          placeholder="📖 Title"
-          value={form.title}
-          onChange={(e) => setForm({ ...form, title: e.target.value })}
-          required
-        />
-        <input
-          placeholder="✍️ Author"
-          value={form.author}
-          onChange={(e) => setForm({ ...form, author: e.target.value })}
-          required
-        />
-        <textarea
-          placeholder="📝 Description"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          required
-        />
-        <input
-          placeholder="🔗 PDF File URL"
-          value={form.fileURL}
-          onChange={(e) => setForm({ ...form, fileURL: e.target.value })}
-          required
-        />
-        <button type="submit">🚀 Upload Book</button>
-      </form>
-
+      <h3>📚 All Books & Reviews</h3>
       <div className="book-list">
         {books.map((book) => (
-          <div key={book._id} className="book-item">
-            <h3>{book.title}</h3>
+          <div key={book._id} className="book-card">
+            <h4>{book.title}</h4>
             <p><strong>Author:</strong> {book.author}</p>
             <p>{book.description}</p>
 
-            <div className="admin-actions">
-              <a
-                href={book.fileURL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="action-btn download"
-              >
-                📥 Download
-              </a>
-              <button className="action-btn delete" onClick={() => handleDelete(book._id)}>
-                🗑️ Delete
-              </button>
-              <button className="action-btn review" onClick={() => handleReviewEdit(book._id)}>
-                📝 Edit Review
-              </button>
+            <div className="review-section">
+              <h5>💬 Reviews</h5>
+              {book.reviews?.length > 0 ? (
+                book.reviews.map((review) => (
+                  <div key={review._id} className="review-item">
+                    {editingReview?._id === review._id ? (
+                      <>
+                        <textarea
+                          value={editData.content}
+                          onChange={(e) => setEditData({ ...editData, content: e.target.value })}
+                          rows={3}
+                        />
+                        <select
+                          value={editData.rating}
+                          onChange={(e) => setEditData({ ...editData, rating: parseInt(e.target.value) })}
+                        >
+                          {[1, 2, 3, 4, 5].map((r) => (
+                            <option key={r} value={r}>{r} ★</option>
+                          ))}
+                        </select>
+                        <button onClick={handleUpdate}>Save</button>
+                        <button onClick={() => setEditingReview(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <p><strong>{review.userId?.name || 'User'}:</strong> {review.content}</p>
+                        <div className="star-display">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span key={star} style={{ color: star <= review.rating ? 'gold' : '#aaa' }}>
+                              ★
+                            </span>
+                          ))}
+                        </div>
+                        <button onClick={() => handleEditClick(review)}>✏️ Edit</button>
+                        {/* Delete Button */}
+                        <button
+                          className="delete-btn"
+                          onClick={() => handleDeleteReview(review._id)}
+                        >
+                          🗑️ Delete
+                        </button> 
+                      </>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p>No reviews yet.</p>
+              )}
             </div>
           </div>
         ))}
@@ -128,4 +140,4 @@ const AdminPanel = () => {
   );
 };
 
-export default AdminPanel;
+export default AdminDashboard;

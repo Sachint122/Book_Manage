@@ -55,3 +55,51 @@ export const getReviewsByBook = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch reviews' });
   }
 };
+
+// PATCH /api/reviews/:id
+// reviewController.js
+export const updateReview = async (req, res) => {
+  const reviewId = req.params.id;
+  const { content, rating } = req.body;
+
+  try {
+    const review = await Review.findByIdAndUpdate(
+      reviewId,
+      { content, rating },
+      { new: true }
+    );
+
+    if (!review) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    // Emit socket event to notify users
+    const io = req.app.get('io'); // 👈 access io
+    io.emit('review-updated', { bookId: review.bookId }); // 🔔 notify clients
+
+    res.json({ message: '✅ Review updated', review });
+  } catch (err) {
+    console.error('Update review error:', err);
+    res.status(500).json({ error: '❌ Failed to update review' });
+  }
+};
+
+export const deleteReview = async (req, res) => {
+  const reviewId = req.params.id;
+
+  try {
+    const deleted = await Review.findByIdAndDelete(reviewId);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Review not found' });
+    }
+
+    // Broadcast via socket.io
+    const io = req.app.get('io');
+    io.emit('review-deleted', { bookId: deleted.bookId });
+
+    res.json({ message: '✅ Review deleted' });
+  } catch (err) {
+    console.error('❌ Delete error:', err);
+    res.status(500).json({ error: 'Failed to delete review' });
+  }
+};

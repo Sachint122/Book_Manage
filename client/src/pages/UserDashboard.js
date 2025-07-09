@@ -25,8 +25,18 @@ const UserDashboard = () => {
       console.log('🔁 Review updated for book:', bookId);
       fetchBooks(); // re-fetch entire list or just update that book
     });
+    socket.on('review-updated', ({ bookId }) => {
+      console.log('🛠️ Admin updated a review:', bookId);
+      fetchBooks();
+    });
+    socket.on('review-deleted', ({ bookId }) => {
+      console.log('Review deleted for book:', bookId);
+      fetchBooks();
+    });
     return () => {
       socket.off('new-review');
+      socket.off('review-updated');
+      socket.off('review-deleted');
     }
   }, []);
   const handleDownload = async (url, bookTitle) => {
