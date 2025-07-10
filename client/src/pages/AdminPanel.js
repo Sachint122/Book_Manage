@@ -11,6 +11,22 @@ const AdminDashboard = () => {
   const [editingReview, setEditingReview] = useState(null);
   const [editData, setEditData] = useState({ content: '', rating: 1 });
   const navigate = useNavigate();
+  const handleDeleteBook = async (bookId) => {
+    if (!window.confirm("Are you sure you want to delete this book?")) return;
+
+    try {
+      await axios.delete(`/books/${bookId}`, {
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+        },
+      });
+      alert("✅ Book deleted!");
+      fetchBooks(); // Refresh
+    } catch (err) {
+      alert("❌ Failed to delete book");
+      console.error(err);
+    }
+  };
 
   const fetchBooks = async () => {
     try {
@@ -27,7 +43,7 @@ const AdminDashboard = () => {
           Authorization: `Bearer ${auth.token}`,
         },
       });
-  
+
       alert('✅ Review deleted');
       fetchBooks(); // reload book list
     } catch (err) {
@@ -35,11 +51,19 @@ const AdminDashboard = () => {
       alert('❌ Failed to delete review');
     }
   };
-  
+
   useEffect(() => {
     fetchBooks();
     socket.on('new-review', () => fetchBooks());
-    return () => socket.off('new-review');
+    socket.on('bookDeleted', fetchBooks);
+    socket.on('bookAdded', fetchBooks);
+
+    return () => {
+      socket.off('bookDeleted');
+      socket.off('new-review');
+      socket.off('bookAdded'); // ✅ Correct
+    }
+
   }, []);
 
   const handleEditClick = (review) => {
@@ -83,7 +107,12 @@ const AdminDashboard = () => {
             <h4>{book.title}</h4>
             <p><strong>Author:</strong> {book.author}</p>
             <p>{book.description}</p>
-
+            <button
+              className="delete-btn"
+              onClick={() => handleDeleteBook(book._id)}
+            >
+              🗑️ Delete Book
+            </button>
             <div className="review-section">
               <h5>💬 Reviews</h5>
               {book.reviews?.length > 0 ? (
@@ -124,7 +153,7 @@ const AdminDashboard = () => {
                           onClick={() => handleDeleteReview(review._id)}
                         >
                           🗑️ Delete
-                        </button> 
+                        </button>
                       </>
                     )}
                   </div>

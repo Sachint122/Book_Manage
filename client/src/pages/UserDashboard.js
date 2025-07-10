@@ -33,10 +33,21 @@ const UserDashboard = () => {
       console.log('Review deleted for book:', bookId);
       fetchBooks();
     });
+    socket.on('bookDeleted', (deletedBookId) => {
+      setBooks(prev => prev.filter(book => book._id !== deletedBookId));
+      fetchBooks();
+    });
+    socket.on('bookAdded', (newBook) => {
+      setBooks(prev => [...prev, newBook]);
+      fetchBooks();
+    });
+  
     return () => {
       socket.off('new-review');
       socket.off('review-updated');
       socket.off('review-deleted');
+      socket.off('bookDeleted');
+      socket.off('bookAdded');
     }
   }, []);
   const handleDownload = async (url, bookTitle) => {
